@@ -5,177 +5,205 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
 import time
+import math
 
-# ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="SolarYield",
+    page_title="SolarYield Dashboard",
     page_icon="☀️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ─── Custom CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
-
-:root {
-    --bg:        #0a0f0a;
-    --surface:   #111811;
-    --border:    #1e2e1e;
-    --green:     #4ade80;
-    --green-dim: #166534;
-    --amber:     #fbbf24;
-    --red:       #f87171;
-    --blue:      #60a5fa;
-    --muted:     #4b5e4b;
-    --text:      #e2f0e2;
-}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
 html, body, [data-testid="stAppViewContainer"] {
-    background: var(--bg) !important;
-    color: var(--text) !important;
-    font-family: 'DM Mono', monospace !important;
+    background: #f8fafc !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    color: #1a2332 !important;
 }
-
-[data-testid="stAppViewContainer"] {
-    background: 
-        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 60%),
-        var(--bg) !important;
-}
-
-h1, h2, h3 { font-family: 'Syne', sans-serif !important; }
-
 [data-testid="stHeader"] { background: transparent !important; }
-[data-testid="stSidebar"] { background: var(--surface) !important; }
+[data-testid="stAppViewContainer"] > div:first-child { padding-top: 1.5rem; }
 
-.metric-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+.sy-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    border: 1px solid #e8edf2;
+    border-radius: 16px;
+    padding: 20px 28px;
+    margin-bottom: 20px;
+}
+.sy-logo { font-size: 22px; font-weight: 700; color: #1a2332; letter-spacing: -0.5px; }
+.sy-logo span { color: #f59e0b; }
+.sy-subtitle { font-size: 12px; color: #64748b; margin-top: 2px; letter-spacing: 0.02em; }
+.sy-time { font-family: 'DM Mono', monospace; font-size: 13px; color: #94a3b8; }
+
+.sy-banner-ok {
+    background: #f0fdf4;
+    border: 1.5px solid #86efac;
     border-radius: 12px;
-    padding: 20px 24px;
-    position: relative;
-    overflow: hidden;
+    padding: 12px 20px;
+    color: #166534;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 16px;
 }
-.metric-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--green), transparent);
-}
-.metric-label {
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 8px;
-}
-.metric-value {
-    font-family: 'Syne', sans-serif;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--green);
-    line-height: 1;
-}
-.metric-value.warn  { color: var(--amber); }
-.metric-value.alert { color: var(--red); }
-.metric-unit {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 4px;
-}
-
-.anomaly-banner {
-    background: rgba(248,113,113,0.1);
-    border: 1px solid rgba(248,113,113,0.4);
-    border-radius: 10px;
-    padding: 14px 20px;
-    margin-bottom: 8px;
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--red);
-    letter-spacing: 0.05em;
-}
-.normal-banner {
-    background: rgba(74,222,128,0.07);
-    border: 1px solid rgba(74,222,128,0.2);
-    border-radius: 10px;
-    padding: 14px 20px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: var(--green);
-    letter-spacing: 0.05em;
-}
-
-.tilt-visual {
-    background: var(--surface);
-    border: 1px solid var(--border);
+.sy-banner-alert {
+    background: #fff7ed;
+    border: 1.5px solid #fdba74;
     border-radius: 12px;
-    padding: 24px;
-    text-align: center;
+    padding: 12px 20px;
+    color: #9a3412;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 16px;
 }
-
-.section-header {
-    font-family: 'Syne', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 8px;
+.sy-banner-wait {
+    background: #f1f5f9;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 12px 20px;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 500;
     margin-bottom: 16px;
 }
 
-.growth-table {
-    font-size: 12px;
+.metric-card {
+    background: white;
+    border: 1px solid #e8edf2;
+    border-radius: 14px;
+    padding: 18px 20px;
+    position: relative;
+}
+.metric-top-bar {
+    height: 3px;
+    border-radius: 2px;
+    margin-bottom: 14px;
+}
+.metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 6px;
+}
+.metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a2332;
+    line-height: 1;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.metric-unit { font-size: 13px; color: #94a3b8; margin-top: 4px; font-weight: 400; }
+.metric-status-ok   { color: #16a34a; font-size: 11px; font-weight: 600; margin-top: 6px; }
+.metric-status-warn { color: #d97706; font-size: 11px; font-weight: 600; margin-top: 6px; }
+.metric-status-bad  { color: #dc2626; font-size: 11px; font-weight: 600; margin-top: 6px; }
+
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin: 20px 0 10px;
 }
 
-div[data-testid="stNumberInput"] label,
-div[data-testid="stSelectbox"] label,
-div[data-testid="stTextInput"] label {
-    color: var(--muted) !important;
-    font-size: 11px !important;
-    letter-spacing: 0.1em !important;
-    text-transform: uppercase !important;
+.tilt-card {
+    background: white;
+    border: 1px solid #e8edf2;
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+}
+.tilt-angle-label {
+    font-size: 40px;
+    font-weight: 700;
+    color: #1a2332;
+    line-height: 1;
+}
+.tilt-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+.log-card {
+    background: white;
+    border: 1px solid #e8edf2;
+    border-radius: 14px;
+    padding: 20px;
 }
 
 div[data-testid="stButton"] button {
-    background: var(--green-dim) !important;
-    border: 1px solid var(--green) !important;
-    color: var(--green) !important;
-    font-family: 'DM Mono', monospace !important;
+    background: #1a2332 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    padding: 8px 20px !important;
+}
+div[data-testid="stButton"] button:hover { background: #2d3f55 !important; }
+
+div[data-testid="stSelectbox"] label,
+div[data-testid="stNumberInput"] label,
+div[data-testid="stTextInput"] label {
     font-size: 12px !important;
-    letter-spacing: 0.1em !important;
-    border-radius: 8px !important;
-}
-div[data-testid="stButton"] button:hover {
-    background: rgba(74,222,128,0.2) !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
 }
 
-.stPlotlyChart { border-radius: 12px; overflow: hidden; }
+.stTabs [data-baseweb="tab"] {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
 
-footer { display: none; }
-#MainMenu { display: none; }
+footer, #MainMenu { display: none; }
+
+.pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.pill-green  { background: #dcfce7; color: #166534; }
+.pill-amber  { background: #fef3c7; color: #92400e; }
+.pill-red    { background: #fee2e2; color: #991b1b; }
+.pill-blue   { background: #dbeafe; color: #1e40af; }
+.pill-purple { background: #ede9fe; color: #5b21b6; }
+.pill-gray   { background: #f1f5f9; color: #475569; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Config ───────────────────────────────────────────────────────────────────
 API_BASE = "https://solaryield-api.onrender.com"
-ANOMALY_COLOURS = {
-    "none":             "#4ade80",
-    "heat_stress":      "#f87171",
-    "soil_drought":     "#fbbf24",
-    "low_humidity":     "#60a5fa",
-    "light_deficiency": "#a78bfa",
-    "voltage_drop":     "#fb923c",
-    "irradiance_limited": "#6b7280",
+
+ANOMALY_META = {
+    "none":              {"label": "Normal",            "pill": "pill-green",  "bar": "#22c55e"},
+    "heat_stress":       {"label": "Heat stress",       "pill": "pill-red",    "bar": "#ef4444"},
+    "soil_drought":      {"label": "Soil drought",      "pill": "pill-amber",  "bar": "#f59e0b"},
+    "low_humidity":      {"label": "Low humidity",      "pill": "pill-blue",   "bar": "#3b82f6"},
+    "light_deficiency":  {"label": "Light deficiency",  "pill": "pill-purple", "bar": "#8b5cf6"},
+    "voltage_drop":      {"label": "Voltage drop",      "pill": "pill-amber",  "bar": "#f97316"},
+    "irradiance_limited":{"label": "Cloud cover",       "pill": "pill-gray",   "bar": "#94a3b8"},
 }
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+CHART_COLORS = {
+    "temperature":  "#ef4444",
+    "humidity":     "#3b82f6",
+    "soil_moisture":"#f59e0b",
+    "lux":          "#8b5cf6",
+    "power_mw":     "#22c55e",
+    "tilt_angle":   "#f97316",
+}
+
 @st.cache_data(ttl=10)
-def fetch_log(n: int = 360):
+def fetch_log(n=360):
     try:
         r = requests.get(f"{API_BASE}/log?n={n}", timeout=8)
         if r.status_code == 200:
@@ -204,96 +232,91 @@ def post_growth(condition, day, height, water, notes):
     except Exception:
         return False
 
-def make_chart(df, y_col, color, title, unit):
+def mini_chart(df, col, color, title, unit, height=160):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=df["timestamp"], y=df[y_col],
+        x=df["timestamp"], y=df[col],
         mode="lines",
-        line=dict(color=color, width=1.5),
+        line=dict(color=color, width=2),
         fill="tozeroy",
-        fillcolor=color.replace(")", ",0.07)").replace("rgb", "rgba") if "rgb" in color else color + "12",
+        fillcolor=color + "18",
         hovertemplate=f"%{{y:.1f}} {unit}<extra></extra>",
     ))
     fig.update_layout(
-        title=dict(text=title, font=dict(family="Syne", size=13, color="#4b5e4b"),
-                   x=0, pad=dict(l=4)),
-        plot_bgcolor="#111811",
-        paper_bgcolor="#111811",
-        font=dict(family="DM Mono", color="#4b5e4b", size=11),
-        margin=dict(l=8, r=8, t=36, b=8),
-        height=180,
-        xaxis=dict(showgrid=False, showline=False, tickfont=dict(size=10)),
-        yaxis=dict(showgrid=True, gridcolor="#1e2e1e", showline=False,
-                   tickfont=dict(size=10)),
+        title=dict(text=title, font=dict(family="Plus Jakarta Sans", size=12,
+                   color="#64748b"), x=0, pad=dict(l=0)),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(family="Plus Jakarta Sans", color="#94a3b8", size=11),
+        margin=dict(l=0, r=0, t=28, b=0),
+        height=height,
+        xaxis=dict(showgrid=False, showline=False, showticklabels=False),
+        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", showline=False,
+                   tickfont=dict(size=10, color="#94a3b8")),
         hovermode="x unified",
     )
     return fig
 
-def tilt_svg(angle: int, anomaly_type: str) -> str:
-    color  = ANOMALY_COLOURS.get(anomaly_type, "#4ade80")
-    rad    = angle * 3.14159 / 180
-    import math
-    w = 90
-    cx, cy = 100, 110
+def tilt_svg(angle, anomaly_type):
+    meta  = ANOMALY_META.get(anomaly_type, ANOMALY_META["none"])
+    color = meta["bar"]
+    rad   = math.radians(angle)
+    w     = 100
+    cx, cy = 110, 115
     x1 = cx - (w/2) * math.cos(rad)
     y1 = cy + (w/2) * math.sin(rad)
     x2 = cx + (w/2) * math.cos(rad)
     y2 = cy - (w/2) * math.sin(rad)
     return f"""
-    <svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg" width="200" height="160">
-      <rect width="200" height="160" fill="#111811" rx="12"/>
-      <!-- Ground line -->
-      <line x1="20" y1="140" x2="180" y2="140" stroke="#1e2e1e" stroke-width="1.5"/>
-      <!-- Crop silhouettes -->
-      <rect x="55" y="118" width="8" height="22" rx="2" fill="#166534" opacity="0.7"/>
-      <rect x="75" y="112" width="8" height="28" rx="2" fill="#166534" opacity="0.7"/>
-      <rect x="95" y="116" width="8" height="24" rx="2" fill="#166534" opacity="0.7"/>
-      <rect x="115" y="110" width="8" height="30" rx="2" fill="#166534" opacity="0.7"/>
-      <rect x="135" y="115" width="8" height="25" rx="2" fill="#166534" opacity="0.7"/>
-      <!-- Panel support -->
-      <line x1="{cx}" y1="{cy}" x2="{cx}" y2="140" stroke="#1e2e1e" stroke-width="1.5" stroke-dasharray="3,3"/>
-      <!-- Panel -->
+    <svg viewBox="0 0 220 170" xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width:240px">
+      <line x1="20" y1="148" x2="200" y2="148" stroke="#e8edf2" stroke-width="1.5"/>
+      <rect x="60" y="126" width="7" height="22" rx="2" fill="#bbf7d0"/>
+      <rect x="78" y="120" width="7" height="28" rx="2" fill="#86efac"/>
+      <rect x="96" y="124" width="7" height="24" rx="2" fill="#bbf7d0"/>
+      <rect x="114" y="118" width="7" height="30" rx="2" fill="#86efac"/>
+      <rect x="132" y="122" width="7" height="26" rx="2" fill="#bbf7d0"/>
+      <line x1="{cx}" y1="{cy}" x2="{cx}" y2="148"
+            stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4,3"/>
       <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}"
-            stroke="{color}" stroke-width="5" stroke-linecap="round"/>
-      <!-- Angle label -->
-      <text x="100" y="20" text-anchor="middle"
-            font-family="Syne,sans-serif" font-size="22" font-weight="700"
-            fill="{color}">{angle}°</text>
-      <text x="100" y="34" text-anchor="middle"
-            font-family="DM Mono,monospace" font-size="9" fill="#4b5e4b"
-            letter-spacing="0.1em">TILT ANGLE</text>
+            stroke="{color}" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="{cx}" cy="{cy}" r="4" fill="{color}"/>
     </svg>"""
 
-# ─── Header ───────────────────────────────────────────────────────────────────
-col_title, col_status = st.columns([3, 1])
-with col_title:
-    st.markdown("""
-    <h1 style='font-family:Syne,sans-serif;font-size:2rem;font-weight:800;
-               color:#4ade80;margin:0;letter-spacing:-0.02em;'>
-        ☀ SolarYield
-    </h1>
-    <p style='color:#4b5e4b;font-size:11px;letter-spacing:0.15em;
-              text-transform:uppercase;margin:2px 0 20px;'>
-        ML-Optimised Agrivoltaic Control · Team J-43
-    </p>
-    """, unsafe_allow_html=True)
+def metric_card_html(label, value, unit, bar_color, status_text, status_class):
+    return f"""
+    <div class='metric-card'>
+        <div class='metric-top-bar' style='background:{bar_color}'></div>
+        <div class='metric-label'>{label}</div>
+        <div class='metric-value'>{value}</div>
+        <div class='metric-unit'>{unit}</div>
+        <div class='{status_class}'>{status_text}</div>
+    </div>"""
 
-# ─── Auto-refresh toggle ──────────────────────────────────────────────────────
-with col_status:
-    st.markdown("<br>", unsafe_allow_html=True)
-    auto_refresh = st.toggle("Auto-refresh", value=True)
-    st.markdown(f"<p style='font-size:10px;color:#4b5e4b;'>{datetime.now().strftime('%H:%M:%S')}</p>",
-                unsafe_allow_html=True)
+# ── Header ────────────────────────────────────────────────────────────────────
+now_str = datetime.now().strftime("%d %b %Y  %H:%M:%S")
+st.markdown(f"""
+<div class='sy-header'>
+    <div>
+        <div class='sy-logo'>Solar<span>Yield</span></div>
+        <div class='sy-subtitle'>ML-Optimised Agrivoltaic Control &nbsp;·&nbsp; Team J-43 &nbsp;·&nbsp; EIC 2026</div>
+    </div>
+    <div class='sy-time'>{now_str}</div>
+</div>
+""", unsafe_allow_html=True)
 
-# ─── Fetch data ───────────────────────────────────────────────────────────────
+# ── Auto-refresh ──────────────────────────────────────────────────────────────
+col_r, col_spacer = st.columns([1, 5])
+with col_r:
+    auto_refresh = st.toggle("Live updates", value=True)
+
+# ── Fetch data ────────────────────────────────────────────────────────────────
 readings = fetch_log(360)
 
 if not readings:
     st.markdown("""
-    <div class='anomaly-banner'>
-        ⚠ No data received yet — waiting for ESP32 to connect
-    </div>
-    """, unsafe_allow_html=True)
+    <div class='sy-banner-wait'>
+        ⏳ &nbsp; Waiting for sensor data — ESP32 not yet connected
+    </div>""", unsafe_allow_html=True)
     if auto_refresh:
         time.sleep(5)
         st.rerun()
@@ -304,113 +327,148 @@ df = pd.DataFrame(readings)
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 df["power_mw"]  = df["voltage"] * df["current"]
 
-# ─── Anomaly banner ───────────────────────────────────────────────────────────
 atype = latest.get("anomaly_type", "none")
+meta  = ANOMALY_META.get(atype, ANOMALY_META["none"])
+
 if latest.get("anomaly_detected"):
     st.markdown(f"""
-    <div class='anomaly-banner'>
-        🔴 ANOMALY DETECTED — {atype.upper().replace('_',' ')} &nbsp;|&nbsp;
-        Panel tilted to {latest['tilt_angle']}°
+    <div class='sy-banner-alert'>
+        ⚠ &nbsp; Anomaly detected — <strong>{meta['label']}</strong>
+        &nbsp;·&nbsp; Panel tilted to {latest['tilt_angle']}°
     </div>""", unsafe_allow_html=True)
 else:
     st.markdown(f"""
-    <div class='normal-banner'>
-        ✓ System nominal &nbsp;|&nbsp; Panel at {latest['tilt_angle']}° baseline
+    <div class='sy-banner-ok'>
+        ✓ &nbsp; System normal — panel at {latest['tilt_angle']}° baseline position
     </div>""", unsafe_allow_html=True)
 
-# ─── Live metrics row ─────────────────────────────────────────────────────────
-st.markdown("<div class='section-header'>Live Readings</div>", unsafe_allow_html=True)
+# ── Live metrics ──────────────────────────────────────────────────────────────
+st.markdown("<div class='section-label'>Live sensor readings</div>", unsafe_allow_html=True)
 
-def metric_html(label, value, unit, alert=False, warn=False):
-    cls = "alert" if alert else ("warn" if warn else "")
-    return f"""
-    <div class='metric-card'>
-        <div class='metric-label'>{label}</div>
-        <div class='metric-value {cls}'>{value}</div>
-        <div class='metric-unit'>{unit}</div>
-    </div>"""
-
-c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 temp  = latest["temperature"]
 hum   = latest["humidity"]
 soil  = latest["soil_moisture"]
 lux   = latest["lux"]
 volts = latest["voltage"]
 amps  = latest["current"]
-tilt  = latest["tilt_angle"]
 power = volts * amps
+tilt  = latest["tilt_angle"]
 
-with c1: st.markdown(metric_html("Temperature", f"{temp:.1f}", "°C",
-    alert=temp>35, warn=temp>30), unsafe_allow_html=True)
-with c2: st.markdown(metric_html("Humidity", f"{hum:.1f}", "%",
-    warn=hum<50), unsafe_allow_html=True)
-with c3: st.markdown(metric_html("Soil Moisture", f"{soil:.0f}", "ADC raw",
-    alert=soil<1500), unsafe_allow_html=True)
-with c4: st.markdown(metric_html("Irradiance", f"{lux:.0f}", "lux"), unsafe_allow_html=True)
-with c5: st.markdown(metric_html("Voltage", f"{volts:.2f}", "V",
-    warn=volts<3.0), unsafe_allow_html=True)
-with c6: st.markdown(metric_html("Current", f"{amps:.1f}", "mA"), unsafe_allow_html=True)
-with c7: st.markdown(metric_html("Power", f"{power:.1f}", "mW"), unsafe_allow_html=True)
+def temp_status(v):
+    if v > 35: return "Above crop threshold", "metric-status-bad"
+    if v > 30: return "Warm — monitor", "metric-status-warn"
+    return "Normal range", "metric-status-ok"
+
+def hum_status(v):
+    if v < 50: return "Low — anomaly risk", "metric-status-warn"
+    return "Normal range", "metric-status-ok"
+
+def soil_status(v):
+    if v < 1500: return "Dry — stress risk", "metric-status-bad"
+    return "Adequate moisture", "metric-status-ok"
+
+c1, c2, c3, c4 = st.columns(4)
+ts, tc = temp_status(temp)
+hs, hc = hum_status(hum)
+ss, sc = soil_status(soil)
+
+with c1: st.markdown(metric_card_html("Temperature", f"{temp:.1f}", "°C",
+    CHART_COLORS["temperature"], ts, tc), unsafe_allow_html=True)
+with c2: st.markdown(metric_card_html("Humidity", f"{hum:.1f}", "%",
+    CHART_COLORS["humidity"], hs, hc), unsafe_allow_html=True)
+with c3: st.markdown(metric_card_html("Soil moisture", f"{soil:.0f}", "ADC raw",
+    CHART_COLORS["soil_moisture"], ss, sc), unsafe_allow_html=True)
+with c4: st.markdown(metric_card_html("Irradiance", f"{lux:.0f}", "lux",
+    CHART_COLORS["lux"], "Light sensor reading", "metric-status-ok"), unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+c5, c6, c7, c8 = st.columns(4)
+with c5: st.markdown(metric_card_html("Voltage", f"{volts:.2f}", "V",
+    CHART_COLORS["power_mw"],
+    "Below threshold" if volts < 3.0 else "Normal output",
+    "metric-status-warn" if volts < 3.0 else "metric-status-ok"), unsafe_allow_html=True)
+with c6: st.markdown(metric_card_html("Current", f"{amps:.1f}", "mA",
+    CHART_COLORS["power_mw"], "Panel current draw", "metric-status-ok"), unsafe_allow_html=True)
+with c7: st.markdown(metric_card_html("Power", f"{power:.1f}", "mW",
+    CHART_COLORS["power_mw"], "Instantaneous output", "metric-status-ok"), unsafe_allow_html=True)
+with c8:
+    pill_cls = meta["pill"]
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-top-bar' style='background:{meta["bar"]}'></div>
+        <div class='metric-label'>System status</div>
+        <div style='margin-top:8px'>
+            <span class='pill {pill_cls}'>{meta["label"]}</span>
+        </div>
+        <div class='metric-unit' style='margin-top:8px'>Tilt: {tilt}°</div>
+        <div class='metric-status-ok' style='margin-top:4px'>
+            {len(readings)} readings logged
+        </div>
+    </div>""", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ─── Tilt visual + anomaly history ───────────────────────────────────────────
-col_tilt, col_hist = st.columns([1, 2])
+# ── Tilt visual + decision log ────────────────────────────────────────────────
+st.markdown("<div class='section-label'>Panel position &amp; decision log</div>", unsafe_allow_html=True)
+
+col_tilt, col_log = st.columns([1, 2])
 
 with col_tilt:
-    st.markdown("<div class='section-header'>Panel Position</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='tilt-visual'>{tilt_svg(tilt, atype)}</div>",
-                unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class='tilt-card'>
+        <div class='tilt-angle-label'>{tilt}°</div>
+        <div class='tilt-sub'>current tilt angle</div>
+        {tilt_svg(tilt, atype)}
+        <div style='margin-top:12px'>
+            <span class='pill {meta["pill"]}'>{meta["label"]}</span>
+        </div>
+    </div>""", unsafe_allow_html=True)
 
-with col_hist:
-    st.markdown("<div class='section-header'>Tilt Decision Log</div>", unsafe_allow_html=True)
-    recent = df.tail(30)[["timestamp", "tilt_angle", "anomaly_type", "temperature",
-                           "humidity", "soil_moisture"]].copy()
+with col_log:
+    st.markdown("<div class='log-card'>", unsafe_allow_html=True)
+    recent = df.tail(25)[["timestamp","tilt_angle","anomaly_type",
+                           "temperature","humidity","soil_moisture"]].copy()
     recent["timestamp"] = recent["timestamp"].dt.strftime("%H:%M:%S")
-    recent.columns      = ["Time", "Tilt °", "Anomaly", "Temp °C", "Hum %", "Soil"]
-    recent              = recent.iloc[::-1]
 
-    def colour_anomaly(val):
-        c = ANOMALY_COLOURS.get(val, "#4b5e4b")
-        return f"color: {c}"
+    def fmt_anomaly(val):
+        m = ANOMALY_META.get(val, ANOMALY_META["none"])
+        return m["label"]
 
-    st.dataframe(
-        recent.style.applymap(colour_anomaly, subset=["Anomaly"]),
-        use_container_width=True,
-        height=220,
-        hide_index=True,
-    )
+    recent["anomaly_type"] = recent["anomaly_type"].apply(fmt_anomaly)
+    recent.columns = ["Time", "Tilt °", "Status", "Temp °C", "Hum %", "Soil"]
+    recent = recent.iloc[::-1]
+    st.dataframe(recent, use_container_width=True, height=230, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ─── Sensor time-series charts ────────────────────────────────────────────────
-st.markdown("<div class='section-header'>Sensor History (Last Hour)</div>",
-            unsafe_allow_html=True)
+# ── Sensor charts ─────────────────────────────────────────────────────────────
+st.markdown("<div class='section-label'>Sensor history — last hour</div>", unsafe_allow_html=True)
 
-r1c1, r1c2 = st.columns(2)
-r2c1, r2c2 = st.columns(2)
-r3c1, r3c2 = st.columns(2)
+r1, r2 = st.columns(2)
+r3, r4 = st.columns(2)
+r5, r6 = st.columns(2)
 
-with r1c1: st.plotly_chart(make_chart(df, "temperature", "#f87171", "Temperature", "°C"),
-                            use_container_width=True)
-with r1c2: st.plotly_chart(make_chart(df, "humidity", "#60a5fa", "Humidity", "%"),
-                            use_container_width=True)
-with r2c1: st.plotly_chart(make_chart(df, "soil_moisture", "#fbbf24", "Soil Moisture", "ADC"),
-                            use_container_width=True)
-with r2c2: st.plotly_chart(make_chart(df, "lux", "#a78bfa", "Irradiance", "lux"),
-                            use_container_width=True)
-with r3c1: st.plotly_chart(make_chart(df, "power_mw", "#4ade80", "Panel Power", "mW"),
-                            use_container_width=True)
-with r3c2: st.plotly_chart(make_chart(df, "tilt_angle", "#4ade80", "Tilt Angle", "°"),
-                            use_container_width=True)
+with r1: st.plotly_chart(mini_chart(df, "temperature", CHART_COLORS["temperature"],
+    "Temperature (°C)", "°C"), use_container_width=True)
+with r2: st.plotly_chart(mini_chart(df, "humidity", CHART_COLORS["humidity"],
+    "Humidity (%)", "%"), use_container_width=True)
+with r3: st.plotly_chart(mini_chart(df, "soil_moisture", CHART_COLORS["soil_moisture"],
+    "Soil moisture (ADC)", "ADC"), use_container_width=True)
+with r4: st.plotly_chart(mini_chart(df, "lux", CHART_COLORS["lux"],
+    "Irradiance (lux)", "lux"), use_container_width=True)
+with r5: st.plotly_chart(mini_chart(df, "power_mw", CHART_COLORS["power_mw"],
+    "Panel power (mW)", "mW"), use_container_width=True)
+with r6: st.plotly_chart(mini_chart(df, "tilt_angle", CHART_COLORS["tilt_angle"],
+    "Tilt angle (°)", "°"), use_container_width=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ─── Growth log ───────────────────────────────────────────────────────────────
-st.markdown("<div class='section-header'>Plant Growth Log — Cai Xin</div>",
+# ── Growth log ────────────────────────────────────────────────────────────────
+st.markdown("<div class='section-label'>Plant growth log — Cai xin</div>",
             unsafe_allow_html=True)
 
-tab_view, tab_add = st.tabs(["📊 View data", "➕ Add measurement"])
+tab_view, tab_add = st.tabs(["View data", "Add measurement"])
 
 with tab_view:
     growth = fetch_growth()
@@ -419,57 +477,57 @@ with tab_view:
         gdf["timestamp"] = pd.to_datetime(gdf["timestamp"]).dt.strftime("%Y-%m-%d %H:%M")
         st.dataframe(gdf[["timestamp","condition","day","height_cm","water_ml","notes"]],
                      use_container_width=True, hide_index=True)
-
-        if len(gdf) > 1:
+        if len(gdf) >= 2:
             fig_g = px.line(gdf, x="day", y="height_cm", color="condition",
                             markers=True,
-                            color_discrete_map={"A":"#60a5fa","B":"#fbbf24","C":"#4ade80"},
+                            color_discrete_map={"A":"#3b82f6","B":"#f59e0b","C":"#22c55e"},
                             labels={"height_cm":"Height (cm)","day":"Day","condition":"Condition"},
-                            title="Plant Height by Condition")
+                            title="Plant height by condition")
             fig_g.update_layout(
-                plot_bgcolor="#111811", paper_bgcolor="#111811",
-                font=dict(family="DM Mono", color="#4b5e4b", size=11),
-                title_font=dict(family="Syne", size=13, color="#4b5e4b"),
-                margin=dict(l=8, r=8, t=36, b=8), height=280,
-                xaxis=dict(showgrid=False),
-                yaxis=dict(showgrid=True, gridcolor="#1e2e1e"),
-                legend=dict(bgcolor="rgba(0,0,0,0)"),
+                plot_bgcolor="white", paper_bgcolor="white",
+                font=dict(family="Plus Jakarta Sans", color="#64748b", size=12),
+                title_font=dict(family="Plus Jakarta Sans", size=13, color="#64748b"),
+                margin=dict(l=0, r=0, t=36, b=0), height=300,
+                xaxis=dict(showgrid=False, title="Day"),
+                yaxis=dict(showgrid=True, gridcolor="#f1f5f9", title="Height (cm)"),
+                legend=dict(bgcolor="rgba(0,0,0,0)", title=""),
             )
             st.plotly_chart(fig_g, use_container_width=True)
     else:
-        st.markdown("<p style='color:#4b5e4b;font-size:12px;'>No growth data yet.</p>",
+        st.markdown("<p style='color:#94a3b8;font-size:13px;padding:8px 0;'>"
+                    "No growth data yet — add your first measurement below.</p>",
                     unsafe_allow_html=True)
 
 with tab_add:
     ga, gb, gc = st.columns(3)
     with ga:
-        g_condition = st.selectbox("Condition", ["A — Open field", "B — Fixed tilt", "C — SolarYield"])
-        g_condition = g_condition[0]
+        g_cond = st.selectbox("Condition", ["A — Open field", "B — Fixed tilt", "C — SolarYield"])
+        g_cond = g_cond[0]
     with gb:
-        g_day    = st.number_input("Day", min_value=1, max_value=42, value=1)
+        g_day = st.number_input("Day", min_value=1, max_value=42, value=1)
     with gc:
         g_height = st.number_input("Height (cm)", min_value=0.0, value=5.0, step=0.5)
-
     gd, ge = st.columns(2)
-    with gd: g_water = st.number_input("Water (mL)", min_value=0.0, value=0.0, step=10.0)
-    with ge: g_notes = st.text_input("Notes (optional)")
-
-    if st.button("Log measurement"):
-        if post_growth(g_condition, int(g_day), g_height, g_water, g_notes):
-            st.success("Logged!")
+    with gd:
+        g_water = st.number_input("Water used (mL)", min_value=0.0, value=0.0, step=10.0)
+    with ge:
+        g_notes = st.text_input("Notes")
+    if st.button("Save measurement"):
+        if post_growth(g_cond, int(g_day), g_height, g_water, g_notes):
+            st.success("Saved!")
             st.cache_data.clear()
         else:
-            st.error("Failed to log — check API connection")
+            st.error("Failed — check API connection")
 
-# ─── Footer ───────────────────────────────────────────────────────────────────
+# ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("""
-<hr style='border-color:#1e2e1e;margin-top:32px;'>
-<p style='color:#4b5e4b;font-size:10px;letter-spacing:0.1em;text-align:center;'>
-    SOLARYIELD · TEAM J-43 · YUVABHARATHI INTERNATIONAL SCHOOL · EIC 2026
+<hr style='border:none;border-top:1px solid #e8edf2;margin:32px 0 16px'>
+<p style='color:#cbd5e1;font-size:11px;text-align:center;letter-spacing:0.08em;'>
+    SOLARYIELD &nbsp;·&nbsp; TEAM J-43 &nbsp;·&nbsp;
+    YUVABHARATHI INTERNATIONAL SCHOOL &nbsp;·&nbsp; EIC 2026
 </p>
 """, unsafe_allow_html=True)
 
-# ─── Auto-refresh ─────────────────────────────────────────────────────────────
 if auto_refresh:
     time.sleep(10)
     st.rerun()
