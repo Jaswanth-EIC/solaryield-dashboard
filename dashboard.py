@@ -239,7 +239,8 @@ def mini_chart(df, col, color, title, unit, height=160):
         mode="lines",
         line=dict(color=color, width=2),
         fill="tozeroy",
-        fillcolor=color + "18",
+        fillcolor=color,
+        opacity=0.07,
         hovertemplate=f"%{{y:.1f}} {unit}<extra></extra>",
     ))
     fig.update_layout(
